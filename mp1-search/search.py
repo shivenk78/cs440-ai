@@ -113,6 +113,9 @@ def manhattan_corner(state, maze):
         return min(dists)
     return 0
 
+def zero(state, maze):
+    return 0
+
 # DictKey = namedtuple('DictKey', ['pos', 'goals'])
 
 def astar_corner(maze):
@@ -123,7 +126,7 @@ def astar_corner(maze):
     #explored = {(state.pos, state.goals) : state}
     explored = {}
 
-    h = manhattan_corner
+    h = manhattan_corner if maze.size.x > 10 else zero
 
     while (frontier):
         state = heapq.heappop(frontier)
@@ -144,12 +147,8 @@ def astar_corner(maze):
                 # print("NEIGH: ", neigh_state)
                 heapq.heappush(frontier, neigh_state)
             # elif (state.path_cost + 1 < explored[(neighbor, state.goals)].path_cost):
-            #     neigh_state = Node(neighbor, DictKey(state.pos, state.goals), state.path_cost + 1, state.path_cost + 1 + h(state, maze), state.goals)
+            #     neigh_state = Node(neighbor, (state.pos, state.goals), state.path_cost + 1, state.path_cost + 1 + h(state, maze), state.goals)
             #     heapq.heappush(frontier, neigh_state)
-            #     explored[DictKey(neigh_state.pos, neigh_state.goals)] = neigh_state
-
-
-    print("asdfasdf")
     
     # print(explored)
     # start = maze.start
@@ -178,9 +177,9 @@ def astar_corner(maze):
 
     path.insert(0, maze.start)
 
-    print("\n\nPATH: ")
-    print(path)
-    print("\n\n")
+    # print("\n\nPATH: ")
+    # print(path)
+    # print("\n\n")
 
     return path
 
