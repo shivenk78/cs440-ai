@@ -105,21 +105,19 @@ def astar_single(maze):
 
 # Heuristic for astar_corner - finds manhattan to farthest remaining corner!
 def manhattan_corner(state, maze):
+    dists = []
+    for way in maze.waypoints:
+        if (way not in state.goals):
+            dists.append(manhattan(state.pos, way))
+    if dists:
+        return min(dists)
     return 0
-    # dists = []
-    # for way in maze.waypoints:
-    #     if (way not in state.goals):
-    #         dists.append(manhattan(state.pos, way))
-    # # if dists:
-    #     return max(dists)
-    # # return 0
 
 # DictKey = namedtuple('DictKey', ['pos', 'goals'])
 
 def astar_corner(maze):
     path = []
     state = Node( maze.start, maze.start, 0, goals=maze.waypoints)
-    print('INIT: ', state)
     frontier = []
     heapq.heappush(frontier, state)
     #explored = {(state.pos, state.goals) : state}
@@ -135,12 +133,16 @@ def astar_corner(maze):
             if (len(state.goals) == 0):
                 break
         
+        if ((state.pos, state.goals) not in explored):
+            explored[(state.pos, state.goals)] = state
+
         neighbors = maze.neighbors(state.pos[0], state.pos[1])
         for neighbor in neighbors:
             if ((neighbor, state.goals) not in explored):
                 neigh_state = Node(neighbor, (state.pos, tuple(state.goals)), state.path_cost + 1, state.path_cost + 1 + h(state, maze), tuple(state.goals))
+                # print("STATE: ", state)
+                # print("NEIGH: ", neigh_state)
                 heapq.heappush(frontier, neigh_state)
-                explored[(neigh_state.pos, neigh_state.goals)] = neigh_state
             # elif (state.path_cost + 1 < explored[(neighbor, state.goals)].path_cost):
             #     neigh_state = Node(neighbor, DictKey(state.pos, state.goals), state.path_cost + 1, state.path_cost + 1 + h(state, maze), state.goals)
             #     heapq.heappush(frontier, neigh_state)
@@ -148,7 +150,7 @@ def astar_corner(maze):
 
 
     print("asdfasdf")
-
+    
     # print(explored)
     # start = maze.start
     # for goal in maze.waypoints:
