@@ -18,14 +18,19 @@ files and classes when code is run, so be careful to not modify anything else.
 # maze is a Maze object based on the maze from the file specified by input filename
 # searchMethod is the search method specified by --method flag (bfs,dfs,astar,astar_multi,fast)
 
-from collections import deque
-from dataclasses import dataclass
+from collections import deque, namedtuple
+from dataclasses import dataclass, field
+import heapq
 
-@dataclass (frozen=True, eq=True)
+# Data class for the state Nodes
+# Sorted only by g+h (for heapq)
+@dataclass (order=True)
 class Node:
-    pos: tuple = (0, 0)
-    parent: tuple = None
-    cost: int = 0
+    pos: tuple = field(compare=False, default=(0,0))
+    parent: tuple = field(compare=False, default=None)
+    path_cost: int = field(compare=False, default=0)
+    g_h: int = 0
+    goals: tuple = field(compare=False, default=())
 
 def bfs(maze):
 
@@ -45,7 +50,7 @@ def bfs(maze):
         for neighbor in neighbors:
             if (neighbor not in explored):
                 if (maze.navigable(neighbor[0], neighbor[1])):
-                    neigh_state = Node(neighbor, state.pos, state.cost + 0)
+                    neigh_state = Node(neighbor, state.pos)
                     frontier.append(neigh_state)
                     explored[neigh_state.pos] =  neigh_state
 
@@ -60,25 +65,122 @@ def bfs(maze):
 
     return path
 
+def manhattan(agent: tuple, waypoint: tuple) -> int:
+    return abs(agent[0]-waypoint[0]) + abs(agent[1]-waypoint[1])
+
 def astar_single(maze):
-    """
-    Runs A star for part 2 of the assignment.
+    path = []
+    state = Node( maze.start, maze.start, 0 )
+    frontier = []
+    heapq.heappush(frontier, state)
+    explored = {state.pos : state}
 
-    @param maze: The maze to execute the search on.
+    h = manhattan
 
-    @return path: a list of tuples containing the coordinates of each state in the computed path
-    """
-    return []
+    while (frontier):
+        state = heapq.heappop(frontier)
+
+        if (maze[state.pos] == maze.legend.waypoint):
+            #print(f"BREAK!! {state.pos} state // waypoints {maze.waypoints}")
+            break
+        
+        neighbors = maze.neighbors(state.pos[0], state.pos[1])
+        for neighbor in neighbors:
+            if (neighbor not in explored):
+                if (maze.navigable(neighbor[0], neighbor[1])):
+                    neigh_state = Node(neighbor, state.pos, state.path_cost + 1, state.path_cost + 1 + h(state.pos, maze.waypoints[0]))
+                    heapq.heappush(frontier, neigh_state)
+                    explored[neigh_state.pos] =  neigh_state
+
+    while (state.pos != maze.start):
+        path.insert(0, state.pos)
+        state = explored[state.parent]
+    path.insert(0, maze.start)
+
+    # print("\n\nPATH: ")
+    # print(path)
+    # print("\n\n")
+
+    return path
+
+# Heuristic for astar_corner - finds manhattan to farthest remaining corner!
+def manhattan_corner(state, maze):
+    return 0
+    # dists = []
+    # for way in maze.waypoints:
+    #     if (way not in state.goals):
+    #         dists.append(manhattan(state.pos, way))
+    # # if dists:
+    #     return max(dists)
+    # # return 0
+
+# DictKey = namedtuple('DictKey', ['pos', 'goals'])
 
 def astar_corner(maze):
-    """
-    Runs A star for part 3 of the assignment in the case where there are four corner objectives.
+    path = []
+    state = Node( maze.start, maze.start, 0, goals=maze.waypoints)
+    print('INIT: ', state)
+    frontier = []
+    heapq.heappush(frontier, state)
+    #explored = {(state.pos, state.goals) : state}
+    explored = {}
 
-    @param maze: The maze to execute the search on.
+    h = manhattan_corner
 
-    @return path: a list of tuples containing the coordinates of each state in the computed path
-        """
-    return []
+    while (frontier):
+        state = heapq.heappop(frontier)
+
+        if (state.pos in state.goals):
+            state.goals = tuple(x for x in state.goals if x != state.pos)
+            if (len(state.goals) == 0):
+                break
+        
+        neighbors = maze.neighbors(state.pos[0], state.pos[1])
+        for neighbor in neighbors:
+            if ((neighbor, state.goals) not in explored):
+                neigh_state = Node(neighbor, (state.pos, tuple(state.goals)), state.path_cost + 1, state.path_cost + 1 + h(state, maze), tuple(state.goals))
+                heapq.heappush(frontier, neigh_state)
+                explored[(neigh_state.pos, neigh_state.goals)] = neigh_state
+            # elif (state.path_cost + 1 < explored[(neighbor, state.goals)].path_cost):
+            #     neigh_state = Node(neighbor, DictKey(state.pos, state.goals), state.path_cost + 1, state.path_cost + 1 + h(state, maze), state.goals)
+            #     heapq.heappush(frontier, neigh_state)
+            #     explored[DictKey(neigh_state.pos, neigh_state.goals)] = neigh_state
+
+
+    print("asdfasdf")
+
+    # print(explored)
+    # start = maze.start
+    # for goal in maze.waypoints:
+    #     temp = explored[goal]
+    #     print(temp)
+    #     curr_path = []
+    #     while temp.pos != start:
+    #         curr_path.insert(0, temp.pos)
+    #         temp = explored[temp.parent]
+    #     path.extend(curr_path)
+    #     start = goal
+
+    # for key in explored:
+        # if (key[0] == (1, 6) or key[0] == (2,6)):
+            # if len(key[1]) == 3 :
+                # print(f"Key: {key} --- Val: {explored[key]}")
+
+    while (state.pos != maze.start):
+        path.insert(0, state.pos)
+        #print(f"STATE: {state}")
+        state = explored[state.parent]
+
+    # pos=(1, 6), parent=DictKey(pos=(2, 6), goals=((6, 1), (1, 1), (1, 6))), path_cost=19, g_h=19, goals=((6, 1), (1, 1), (1, 6)))
+
+
+    path.insert(0, maze.start)
+
+    print("\n\nPATH: ")
+    print(path)
+    print("\n\n")
+
+    return path
 
 def astar_multiple(maze):
     """
