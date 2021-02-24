@@ -39,11 +39,34 @@ def compute_tf_idf(train_set, train_labels, dev_set):
             Returned list should have same size as dev_set (one word from each dev_set document)
     """
 
+    answer = []
 
+    # TF
+    for email in dev_set:
+        doc_count = Counter()
+        tf_idf = {}
 
-    # TODO: Write your code here
-    
+        for word in email:
+            doc_count.update({word: 1})
+        for word, count in doc_count.items():
+            tf = count/len(email)
 
+            # IDF
+            doc_count = 0
+            for train_email in train_set:
+                if word in train_email:
+                    doc_count = doc_count + 1
+            idf = np.log(len(train_set) / (1 + doc_count))
+
+            tf_idf[word] = tf * idf
+
+        maxval = 0
+        maxword = ""
+        for word, tfidf in tf_idf.items():
+            if tfidf > maxval:
+                maxval = tfidf
+                maxword = word
+        answer.append(maxword)
 
     # return list of words (should return a list, not numpy array or similar)
-    return []
+    return answer

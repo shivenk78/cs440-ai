@@ -62,9 +62,9 @@ def naiveBayesMixture(train_set, train_labels, dev_set, bigram_lambda, unigram_s
         for word in train_set[i]:
             uni_total_token_count[train_labels[i]] = uni_total_token_count[train_labels[i]] + 1
             if train_labels[i] == SPAM:
-                uni_spam_word_counter.update({word.lower(): 1})
+                uni_spam_word_counter.update({word: 1})
             else:
-                uni_ham_word_counter.update({word.lower(): 1})
+                uni_ham_word_counter.update({word: 1})
 
     # Calculate smoothed likelihoods from counts. The '+1' represents the UNKNOWN probability.
     uni_spam_likelihoods = {key:( (val + LAPLACE_UNI)/(uni_total_token_count[SPAM] + 1 + LAPLACE_UNI * len(uni_spam_word_counter)) ) for (key, val) in uni_spam_word_counter.items()}
@@ -84,12 +84,12 @@ def naiveBayesMixture(train_set, train_labels, dev_set, bigram_lambda, unigram_s
     for i in range(len(train_set)):
         bi_email_count[train_labels[i]] = bi_email_count[train_labels[i]] + 1
         for j in range(len(train_set[i]) - 1):
-            bigram = train_set[i][j] + " " + train_set[i][j + 1]
+            bigram = (train_set[i][j], train_set[i][j + 1])
             bi_total_token_count[train_labels[i]] = bi_total_token_count[train_labels[i]] + 1
             if train_labels[i] == SPAM:
-                bi_spam_word_counter.update({bigram.lower(): 1})
+                bi_spam_word_counter.update({bigram: 1})
             else:
-                bi_ham_word_counter.update({bigram.lower(): 1})
+                bi_ham_word_counter.update({bigram: 1})
 
     # Calculate smoothed likelihoods from counts. The '+1' represents the UNKNOWN probability.
     bi_spam_likelihoods = {key:( (val + LAPLACE_BI)/(bi_total_token_count[SPAM] + 1 + LAPLACE_BI * len(bi_spam_word_counter)) ) for (key, val) in bi_spam_word_counter.items()}
@@ -102,32 +102,39 @@ def naiveBayesMixture(train_set, train_labels, dev_set, bigram_lambda, unigram_s
     dev_labels = []
 
     for email in dev_set:
-        ham_posterior = (1-LAMBDA) * np.log(PRIOR_HAM) + LAMBDA * np.log(PRIOR_HAM)
-        spam_posterior = (1-LAMBDA) * np.log(PRIOR_SPAM) + LAMBDA * np.log(PRIOR_SPAM)
+        ham_posterior = np.log(PRIOR_HAM)
+        spam_posterior = np.log(PRIOR_SPAM)
 
         # Unigram 
+        uni_ham_sum = 0
+        uni_spam_sum = 0
         for word in email:
-            if word.lower() in uni_spam_likelihoods:
-                spam_posterior += (1-LAMBDA) * np.log(uni_spam_likelihoods[word.lower()])
+            if word in uni_spam_likelihoods:
+                uni_spam_sum += np.log(uni_spam_likelihoods[word])
             else:
-                spam_posterior += (1-LAMBDA) * np.log(1 - uni_spam_likelihood_sum)
-            if word.lower() in uni_ham_likelihoods:
-                ham_posterior += (1-LAMBDA) * np.log(uni_ham_likelihoods[word.lower()])
+                uni_spam_sum += np.log(1 - uni_spam_likelihood_sum)
+            if word in uni_ham_likelihoods:
+                uni_ham_sum += np.log(uni_ham_likelihoods[word])
             else:
-                ham_posterior += (1-LAMBDA) * np.log(1 - uni_ham_likelihood_sum)
+                uni_ham_sum += np.log(1 - uni_ham_likelihood_sum)
 
         # Bigram
+        bi_ham_sum = 0
+        bi_spam_sum = 0
         for i in range(len(email) - 1):
-            bigram = (email[i] + " " + email[i + 1]).lower()
+            bigram = (email[i], email[i + 1])
             if bigram in bi_spam_likelihoods:
-                spam_posterior += LAMBDA * np.log(bi_spam_likelihoods[bigram])
+                bi_spam_sum += np.log(bi_spam_likelihoods[bigram])
             else:
-                spam_posterior += LAMBDA * np.log(1 - bi_spam_likelihood_sum)
+                bi_spam_sum += np.log(1 - bi_spam_likelihood_sum)
             if bigram in bi_ham_likelihoods:
-                ham_posterior += LAMBDA * np.log(bi_ham_likelihoods[bigram])
+                bi_ham_sum += np.log(bi_ham_likelihoods[bigram])
             else:
-                ham_posterior += LAMBDA * np.log(1 - bi_ham_likelihood_sum)
+                bi_ham_sum += np.log(1 - bi_ham_likelihood_sum)
         
+        ham_posterior += (1-LAMBDA) * uni_ham_sum + LAMBDA * bi_ham_sum
+        spam_posterior += (1-LAMBDA) * uni_spam_sum + LAMBDA * bi_spam_sum
+
         if ham_posterior >= spam_posterior:
             dev_labels.append(HAM)
         else:
