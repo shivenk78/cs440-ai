@@ -44,21 +44,38 @@ class NeuralNet(nn.Module):
         """
         super(NeuralNet, self).__init__()
         self.loss_fn = loss_fn
-        raise NotImplementedError("You need to write this part!")
+        
+        self.model = nn.Sequential(
+            nn.Linear(in_size, 32),
+            nn.ReLU(),
+            nn.Linear(32, out_size),
+            #nn.ReLU()
+        )
+
+        self.optimizer = optim.SGD(self.model.parameters(), lr=lrate)
 
     def set_parameters(self, params):
         """ Sets the parameters of your network.
 
         @param params: a list of tensors containing all parameters of the network
+            W1, B1, W2, B2
         """
-        raise NotImplementedError("You need to write this part!")
+        self.model[0].weight = params[0]
+        self.model[0].bias = params[0]
+        self.model[2].weight = params[0]
+        self.model[2].bias = params[0]
     
     def get_parameters(self):
         """ Gets the parameters of your network.
 
         @return params: a list of tensors containing all parameters of the network
         """
-        raise NotImplementedError("You need to write this part!")
+        return [
+            self.model[0].weight,
+            self.model[0].bias,
+            self.model[2].weight,
+            self.model[2].bias
+        ]
 
     def forward(self, x):
         """Performs a forward pass through your neural net (evaluates f(x)).
@@ -66,8 +83,12 @@ class NeuralNet(nn.Module):
         @param x: an (N, in_size) Tensor
         @return y: an (N, out_size) Tensor of output from the network
         """
-        raise NotImplementedError("You need to write this part!")
-        return torch.ones(x.shape[0], 1)
+        # Normalize
+        mean = torch.mean(x)
+        sd = torch.std(x)
+        x = (x-mean)/sd
+        
+        return self.model(x)
 
     def step(self, x,y):
         """
@@ -76,9 +97,21 @@ class NeuralNet(nn.Module):
         @param x: an (N, in_size) Tensor
         @param y: an (N,) Tensor
         @return L: total empirical risk (mean of losses) at this timestep as a float
-        """
-        raise NotImplementedError("You need to write this part!")
-        return 0.0
+        """        
+
+        # Run
+        y_pred = self.forward(x)
+        loss = self.loss_fn(y_pred, y)
+
+        L = loss.item()
+
+        loss.backward()
+
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+
+        return L
+
 
 
 def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
@@ -98,5 +131,33 @@ def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     @return yhats: an (M,) NumPy array of binary labels for dev_set
     @return net: a NeuralNet object
     """
-    raise NotImplementedError("You need to write this part!")
-    return [],[],None
+    
+    net = NeuralNet(.01, nn.CrossEntropyLoss(), 3072, 2)
+
+    losses = np.zeros(n_iter)
+    yhats = []
+
+    print("SHAPES ", train_set.shape, train_labels.shape)
+
+
+    # Train
+    tile_count = (n_iter * batch_size) // len(train_labels) + 1
+    tiled_set = train_set.tile((tile_count, 1))
+    tiled_labels = train_labels.tile(tile_count)
+
+    print("SHAPES ", tile_count, tiled_set.shape, tiled_labels.shape)
+
+    for i in range(n_iter):
+        losses[i] = net.step(
+            tiled_set[i * batch_size : (i + 1) * batch_size, :],
+            tiled_labels[i * batch_size : (i + 1) * batch_size]
+            )
+
+    # Classify DevSet
+    for item in dev_set:
+        output = net.forward(item)
+        yhats.append(torch.argmax(output).item())
+
+    #print(yhats)
+
+    return list(losses), yhats, net
