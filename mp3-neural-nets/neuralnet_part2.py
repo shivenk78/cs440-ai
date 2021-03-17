@@ -15,6 +15,7 @@ files and classes when code is run, so be careful to not modify anything else.
 """
 
 import numpy as np
+import numpy.random
 
 import torch
 import torch.nn as nn
@@ -37,16 +38,25 @@ class NeuralNet(nn.Module):
         super(NeuralNet, self).__init__()
         self.loss_fn = loss_fn
 
-        img_size = 64
+        self.layers = [0, 3, 6]
+
+        pool_size = 2
         
         self.model = nn.Sequential(
-            nn.Linear(in_size, img_size),
+            nn.Conv2d(3, 6, 5), # 0
+            nn.MaxPool2d(pool_size, pool_size),
             nn.ReLU(),
-            nn.Linear(img_size, out_size),
+
+            nn.Conv2d(6, 16, 5), # 3
+            nn.MaxPool2d(pool_size, pool_size),
             #nn.ReLU(),
+
+            nn.Flatten(),
+
+            nn.Linear(16*5*5,2), # 6
         )
 
-        self.optimizer = optim.SGD(self.model.parameters(), lr=lrate, weight_decay=0.0001)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=lrate)
 
 
     def forward(self, x):
@@ -59,6 +69,9 @@ class NeuralNet(nn.Module):
         mean = torch.mean(x)
         sd = torch.std(x)
         x = (x-mean)/sd
+
+        # Reshape
+        x = torch.reshape(x, (-1, 3, 32, 32))
         
         return self.model(x)
 
@@ -84,9 +97,8 @@ class NeuralNet(nn.Module):
 
     def get_total_params(self):
         count = 0
-        layers = [0, 2]
 
-        for layer in layers:
+        for layer in self.layers:
             count += self.model[layer].weight.numel() + self.model[layer].bias.numel()
 
         return count
@@ -124,7 +136,10 @@ def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     tiled_set = train_set.tile((tile_count, 1))
     tiled_labels = train_labels.tile(tile_count)
 
-    for i in range(n_iter):
+    indices = np.arange(n_iter)
+    np.random.shuffle(indices)
+
+    for i in indices:
         losses[i] = net.step(
             tiled_set[i * batch_size : (i + 1) * batch_size, :],
             tiled_labels[i * batch_size : (i + 1) * batch_size]
