@@ -99,7 +99,6 @@ class NeuralNet(nn.Module):
         @return L: total empirical risk (mean of losses) at this timestep as a float
         """        
 
-        # Run
         y_pred = self.forward(x)
         loss = self.loss_fn(y_pred, y)
 
@@ -137,15 +136,10 @@ def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     losses = np.zeros(n_iter)
     yhats = []
 
-    print("SHAPES ", train_set.shape, train_labels.shape)
-
-
     # Train
     tile_count = (n_iter * batch_size) // len(train_labels) + 1
     tiled_set = train_set.tile((tile_count, 1))
     tiled_labels = train_labels.tile(tile_count)
-
-    print("SHAPES ", tile_count, tiled_set.shape, tiled_labels.shape)
 
     for i in range(n_iter):
         losses[i] = net.step(
@@ -157,7 +151,5 @@ def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     for item in dev_set:
         output = net.forward(item)
         yhats.append(torch.argmax(output).item())
-
-    #print(yhats)
 
     return list(losses), yhats, net

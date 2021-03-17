@@ -36,7 +36,17 @@ class NeuralNet(nn.Module):
         """
         super(NeuralNet, self).__init__()
         self.loss_fn = loss_fn
-        raise NotImplementedError("You need to write this part!")
+
+        img_size = 64
+        
+        self.model = nn.Sequential(
+            nn.Linear(in_size, img_size),
+            nn.ReLU(),
+            nn.Linear(img_size, out_size),
+            #nn.ReLU(),
+        )
+
+        self.optimizer = optim.SGD(self.model.parameters(), lr=lrate, weight_decay=0.0001)
 
 
     def forward(self, x):
@@ -45,8 +55,12 @@ class NeuralNet(nn.Module):
         @param x: an (N, in_size) Tensor
         @return y: an (N, out_size) Tensor of output from the network
         """
-        raise NotImplementedError("You need to write this part!")
-        return torch.ones(x.shape[0], 1)
+        # Normalize
+        mean = torch.mean(x)
+        sd = torch.std(x)
+        x = (x-mean)/sd
+        
+        return self.model(x)
 
     def step(self, x,y):
         """
@@ -56,8 +70,26 @@ class NeuralNet(nn.Module):
         @param y: an (N,) Tensor
         @return L: total empirical risk (mean of losses) at this timestep as a float
         """
-        raise NotImplementedError("You need to write this part!")
-        return 0.0
+        y_pred = self.forward(x)
+        loss = self.loss_fn(y_pred, y)
+
+        L = loss.item()
+
+        loss.backward()
+
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+
+        return L
+
+    def get_total_params(self):
+        count = 0
+        layers = [0, 2]
+
+        for layer in layers:
+            count += self.model[layer].weight.numel() + self.model[layer].bias.numel()
+
+        return count
 
 def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     """ Make NeuralNet object 'net' and use net.step() to train a neural net
@@ -79,5 +111,28 @@ def fit(train_set,train_labels,dev_set,n_iter,batch_size=100):
     @return yhats: an (M,) NumPy array of binary labels for dev_set
     @return net: a NeuralNet object
     """
-    raise NotImplementedError("You need to write this part!")
-    return [],[],None
+
+    net = NeuralNet(.01, nn.CrossEntropyLoss(), 3072, 2)
+
+    print("Total Parameters: ", net.get_total_params())
+
+    losses = np.zeros(n_iter)
+    yhats = []
+
+    # Train
+    tile_count = (n_iter * batch_size) // len(train_labels) + 1
+    tiled_set = train_set.tile((tile_count, 1))
+    tiled_labels = train_labels.tile(tile_count)
+
+    for i in range(n_iter):
+        losses[i] = net.step(
+            tiled_set[i * batch_size : (i + 1) * batch_size, :],
+            tiled_labels[i * batch_size : (i + 1) * batch_size]
+            )
+
+    # Classify DevSet
+    for item in dev_set:
+        output = net.forward(item)
+        yhats.append(torch.argmax(output).item())
+
+    return list(losses), yhats, net
