@@ -56,7 +56,41 @@ def minimax(side, board, flags, depth):
       flags (list of flags): list of flags, used by generateMoves and makeMove
       depth (int >=0): depth of the search (number of moves)
     '''
-    raise NotImplementedError("you need to write this!")
+    
+    moves = [ move for move in generateMoves(side, board, flags)]
+    moveList = []
+    moveTree = {}
+    if len(moves)==0 or depth==0:
+      return evaluate(board), moveList, moveTree
+    
+    best_val = None
+    best_movelist = []
+    if side: # Min
+      best_val = math.inf
+      for move in moves:
+        newside, newboard, newflags = makeMove(side, board, move[0], move[1], flags, move[2])
+        poss_val, poss_movelist, poss_movetree = minimax(newside, newboard, newflags, depth-1)
+        
+        moveTree[encode(*move)] = poss_movetree
+
+        if poss_val < best_val:
+          best_val = poss_val
+          best_movelist = [move] + poss_movelist
+
+    else: # Max
+      best_val = -math.inf
+      for move in moves:
+        newside, newboard, newflags = makeMove(side, board, move[0], move[1], flags, move[2])
+        poss_val, poss_movelist, poss_movetree = minimax(newside, newboard, newflags, depth-1)
+
+        moveTree[encode(*move)] = poss_movetree
+        
+        if poss_val > best_val:
+          best_val = poss_val
+          best_movelist = [move] + poss_movelist
+
+    moveList = best_movelist
+    return best_val, moveList, moveTree
 
 def alphabeta(side, board, flags, depth, alpha=-math.inf, beta=math.inf):
     '''
