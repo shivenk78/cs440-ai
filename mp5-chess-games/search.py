@@ -60,7 +60,7 @@ def minimax(side, board, flags, depth):
     moves = [ move for move in generateMoves(side, board, flags)]
     moveList = []
     moveTree = {}
-    if len(moves)==0 or depth==0:
+    if len(moves) == 0 or depth == 0:
       return evaluate(board), moveList, moveTree
     
     best_val = None
@@ -105,8 +105,47 @@ def alphabeta(side, board, flags, depth, alpha=-math.inf, beta=math.inf):
       flags (list of flags): list of flags, used by generateMoves and makeMove
       depth (int >=0): depth of the search (number of moves)
     '''
-    raise NotImplementedError("you need to write this!")
     
+    moves = [ move for move in generateMoves(side, board, flags)]
+    moveTree = {}
+    if len(moves) == 0 or depth == 0:
+      return evaluate(board), [], moveTree
+    
+    best_val = None
+    best_movelist = []
+    if side: # Min
+      best_val = math.inf
+      for move in moves:
+        newside, newboard, newflags = makeMove(side, board, move[0], move[1], flags, move[2])
+        poss_val, poss_movelist, poss_movetree = alphabeta(newside, newboard, newflags, depth-1, alpha, beta)
+
+        moveTree[encode(*move)] = poss_movetree
+
+        if poss_val < best_val:
+          best_val = poss_val
+          best_movelist = [move] + poss_movelist
+
+        beta = min(beta, best_val)
+        if beta <= alpha:
+          return best_val, best_movelist, moveTree
+
+    else: # Max
+      best_val = -math.inf
+      for move in moves:
+        newside, newboard, newflags = makeMove(side, board, move[0], move[1], flags, move[2])
+        poss_val, poss_movelist, poss_movetree = alphabeta(newside, newboard, newflags, depth-1, alpha, beta)
+
+        moveTree[encode(*move)] = poss_movetree
+
+        if poss_val > best_val:
+          best_val = poss_val
+          best_movelist = [move] + poss_movelist
+
+        alpha = max(alpha, best_val)
+        if alpha >= beta:
+          return best_val, best_movelist, moveTree
+
+    return best_val, best_movelist, moveTree
 
 def stochastic(side, board, flags, depth, breadth, chooser):
     '''
@@ -123,4 +162,62 @@ def stochastic(side, board, flags, depth, breadth, chooser):
       breadth: number of different paths 
       chooser: a function similar to random.choice, but during autograding, might not be random.
     '''
-    raise NotImplementedError("you need to write this!")
+
+    moves = [move for move in generateMoves(side, board, flags)]
+    moveList = []
+    moveTree = {}
+    if len(moves) == 0 or depth == 0 or breadth == 0:
+      return evaluate(board), moveList, moveTree
+
+    init_values = []
+    init_move_lists = []
+    for move in moves:
+      init_side, init_board, init_flags = makeMove(side, board, move[0], move[1], flags, move[2])
+      init_movetree = {}
+
+      value_sum = 0
+      rand_movelist = None
+      for i in range(breadth):
+        val, rand_movelist, rand_movetree = stoch_path(init_side, init_board, init_flags, depth-1, chooser)
+        value_sum += val
+        init_movetree.update(rand_movetree)
+      
+      init_values.append(value_sum/breadth)
+      init_move_lists.append([move])
+      moveTree[encode(*move)] = init_movetree
+    
+    if side: # Min
+      min_val = math.inf
+      min_path = None
+      for i in range(len(init_values)):
+        if init_values[i] < min_val:
+          min_val = init_values[i]
+          min_path = init_move_lists[i]
+      
+      return min_val, min_path, moveTree
+
+    else: # Max
+      max_val = -math.inf
+      max_path = None
+      for i in range(len(init_values)):
+        if init_values[i] > max_val:
+          max_val = init_values[i]
+          max_path = init_move_lists[i]
+      
+      return max_val, max_path, moveTree
+
+def stoch_path(side, board, flags, depth, chooser):
+  moves = [ move for move in generateMoves(side, board, flags) ]
+  moveList = []
+  moveTree = {}
+  if depth == 0 or len(moves) == 0:
+    return evaluate(board), moveList, moveTree
+  
+  rand_move = chooser(moves)
+  newside, newboard, newflags = makeMove(side, board, rand_move[0], rand_move[1], flags, rand_move[2])
+  path_val, path_list, path_tree = stoch_path(newside, newboard, newflags, depth-1, chooser)
+
+  moveTree[encode(*rand_move)] = path_tree
+  moveList = [rand_move] + path_list
+
+  return path_val, moveList, moveTree
